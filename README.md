@@ -22,7 +22,7 @@ here. All credit and bug reports should go to Alex Graves.
 
 
 ORIGINAL README
-===============
+---------------
 
 RNNLIB is written in C++ and should compile on any platform. However it is
 currently only tested for Linux and OSX.
