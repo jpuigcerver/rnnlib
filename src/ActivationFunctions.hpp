@@ -18,21 +18,17 @@ along with RNNLIB.  If not, see <http://www.gnu.org/licenses/>.*/
 #ifndef _INCLUDED_ActivationFunctions_h
 #define _INCLUDED_ActivationFunctions_h
 
+#include <boost/array.hpp>
 #include <numeric>
 #include <limits>
-#include <boost/array.hpp>
 #include "Log.hpp"
-
-using namespace std;
-using namespace boost;
 
 // Implement logistic function
 // f(x) = 1 / (1 + exp(-x))
-//
 struct Logistic {
   static real_t fn(real_t x) {
     if (x < Log<real_t>::expLimit) {
-      if(x > -Log<real_t>::expLimit) {
+      if (x > -Log<real_t>::expLimit) {
         return 1.0 / (1.0 + exp(-x));
       }
       return 0;
@@ -51,10 +47,8 @@ struct Logistic {
 // f(x) = x / (1 + |x|)
 struct Softsign {
   static real_t fn(real_t x) {
-    if (x < realMax)
-    {
-      if (x > -realMax)
-      {
+    if (x < realMax) {
+      if (x > -realMax) {
         return (x/(1 + fabs(x)));
       }
       return -1;
@@ -89,10 +83,9 @@ struct Maxmin2 {
     return (4 * Logistic::fn(x)) - 2;
   }
   static real_t deriv(real_t y) {
-    if (y==-2 || y==2)
-      {
-	return 0;
-      }
+    if (y == -2 || y == 2) {
+      return 0;
+    }
     return (4 - (y * y)) / 4.0;
   }
   static real_t second_deriv(real_t y) {
@@ -105,7 +98,7 @@ struct Maxmin1 {
     return (2 * Logistic::fn(x)) - 1;
   }
   static real_t deriv(real_t y) {
-    if (y==-1 || y==1) {
+    if (y == -1 || y == 1) {
       return 0;
     }
     return (1.0 - (y * y)) / 2.0;
@@ -120,7 +113,7 @@ struct Max2min0 {
     return (2 * Logistic::fn(x));
   }
   static real_t deriv(real_t y) {
-    if (y==-1 || y==1) {
+    if (y == -1 || y == 1) {
       return 0;
     }
     return y * (1 - (y / 2.0));
