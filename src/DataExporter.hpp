@@ -20,6 +20,12 @@ along with RNNLIB.  If not, see <http://www.gnu.org/licenses/>.*/
 
 #include <boost/concept/requires.hpp>
 #include <boost/range/concepts.hpp>
+
+#include <map>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "Named.hpp"
 #include "Helpers.hpp"
 #include "SeqBuffer.hpp"
@@ -47,15 +53,17 @@ static istream& operator >>(istream& in, Val& v) {
 }
 
 template <typename R> struct RangeVal: public Val {
-  //data
+  // data
   R range;
 
-  //functions
-  RangeVal(const R& r): range(r) {}
+  // functions
+  explicit RangeVal(const R& r) : range(r) {}
+
   void print(ostream& out) const {
     out << boost::size(range) << " ";
     print_range(out, range);
   }
+
   bool load(istream& in, ostream& out = cout) {
     int size;
     if (in >> size && size == boost::size(range)) {
@@ -73,33 +81,36 @@ template <typename R> struct RangeVal: public Val {
 };
 
 template <typename T> struct ParamVal: public Val {
-  //data
+  // data
   T& param;
 
-  //functions
-  ParamVal(T& p): param(p) {}
+  // functions
+  explicit ParamVal(T& p): param(p) {}
+
   void print(ostream& out) const {
     out << param;
   }
+
   bool load(istream& in, ostream& out = cout) {
     return (in >> param);
   }
 };
 
 template <typename T> struct SeqBufferVal: public Val {
-  //data
+  // data
   const SeqBuffer<T>& array;
   const vector<string>* labels;
 
-  //functions
+  // functions
   SeqBufferVal(const SeqBuffer<T>& a, const vector<string>* labs = 0):
       array(a), labels(labs) {}
+
   void print(ostream& out) const {
     if (!array.empty()) {
       if (labels) {
         out << "LABELS: " << *labels << endl;
-        //print_range(out, *labels);
-        //out << endl;
+        // print_range(out, *labels);
+        // out << endl;
       }
       out << array;
     }
@@ -117,14 +128,15 @@ typedef pair<const string, DataExporter*> PSPDE;
 typedef pair<const string, Val*> PSPV;
 
 struct DataExportHandler {
-  //data
+  // data
   map<string, DataExporter*> dataExporters;
 
-  //functions
+  // functions
   static DataExportHandler& instance() {
     static DataExportHandler d;
     return d;
   }
+
   void save(ostream& out) const;
   void load(ConfigFile& conf, ostream& out = cout);
   void display(const string& path) const;
@@ -136,12 +148,12 @@ static ostream& operator << (ostream& out, const DataExportHandler& de) {
 }
 
 struct DataExporter: public Named {
-  //data
+  // data
   map<string, Val*> saveVals;
   map<string, Val*> displayVals;
 
-  //functions
-  DataExporter(const string& name): Named(name) {
+  // functions
+  explicit DataExporter(const string& name): Named(name) {
     DataExportHandler::instance().dataExporters[name] = this;
   }
   ~DataExporter() {

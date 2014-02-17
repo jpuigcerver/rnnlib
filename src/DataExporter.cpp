@@ -17,34 +17,32 @@ along with RNNLIB.  If not, see <http://www.gnu.org/licenses/>.*/
 
 #include "DataExporter.hpp"
 
-void DataExportHandler::save(ostream& out) const
-{
-	LOOP(const PSPDE& exp, dataExporters)
-	{
-		out << *(exp.second);
-	}
+#include <string>
+
+void DataExportHandler::save(ostream& out) const {
+  LOOP(const PSPDE& exp, dataExporters) {
+    out << *(exp.second);
+  }
 }
-void DataExportHandler::load(ConfigFile& conf, ostream& out)
-{
-	LOOP(PSPDE& exp, dataExporters)
-	{
-		if(!exp.second->load(conf, out))
-		{
-			out << " for '" << exp.first << "' in config file " << conf.filename << ", exiting" << endl;
-			exit(0);
-		}
-	}
+
+void DataExportHandler::load(ConfigFile& conf, ostream& out) {
+  LOOP(PSPDE& exp, dataExporters) {
+    if (!exp.second->load(conf, out)) {
+      out << " for '" << exp.first << "' in config file " << conf.filename
+          << ", exiting" << endl;
+      exit(0);
+    }
+  }
 }
-void DataExportHandler::display(const string& path) const
-{
-	LOOP(const PSPDE& exp, dataExporters)
-	{
-		LOOP(const PSPV& val, exp.second->displayVals)
-		{			
-			string filename = path + exp.first + "_" + val.first;
-			ofstream out (filename.c_str());
-			check(out.is_open(), "couldn't open display file " + filename + " for writing");
-			out << *(val.second);
-		}
-	}
+
+void DataExportHandler::display(const string& path) const {
+  LOOP(const PSPDE& exp, dataExporters) {
+    LOOP(const PSPV& val, exp.second->displayVals) {
+      string filename = path + exp.first + "_" + val.first;
+      ofstream out(filename.c_str());
+      check(out.is_open(), "couldn't open display file " + filename +
+            " for writing");
+      out << *(val.second);
+    }
+  }
 }
