@@ -27,15 +27,18 @@ struct BiasLayer: public Layer {
   View<real_t> errors;
 
   // functions
-  BiasLayer():
+  BiasLayer() :
       Layer("bias", 0, 0, 1), acts(this->outputActivations[0]),
       errors(this->outputErrors[0]) {
     acts.front() = 1;
   }
+
   ~BiasLayer() {}
+
   const View<real_t> out_acts(const vector<int>& coords) {
     return acts;
   }
+
   const View<real_t> out_errs(const vector<int>& coords) {
     return errors;
   }
