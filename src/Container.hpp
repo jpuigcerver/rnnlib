@@ -122,7 +122,7 @@ template<class T> struct Vector: public vector<T> {
     return v;
   }
   template<class R> Vector<T>& operator =(const R& r) {
-    resize(boost::size(r));
+    vector<T>::resize(boost::size(r));
     copy(r, *this);
     return *this;
   }

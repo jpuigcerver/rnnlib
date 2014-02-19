@@ -289,93 +289,6 @@ template <class R> static size_t count_adjacent(const R& r) {
   }
   return count;
 }
-template <class R1, class R2>
-static pair<
-  zip_iterator<tuple<
-                 typename range_iterator<R1>::type,
-                 typename range_iterator<R2>::type> >,
-  zip_iterator<tuple<
-                 typename range_iterator<R1>::type,
-                 typename range_iterator<R2>::type> > >
-zip(R1& r1, R2& r2) {
-  size_t size = range_min_size(r1, r2);
-  return make_pair(
-      make_zip_iterator(make_tuple(boost::begin(r1), boost::begin(r2))),
-      make_zip_iterator(make_tuple(
-          boost::end(r1) - (boost::size(r1) - size),
-          boost::end(r2) - (boost::size(r2) - size))));
-}
-template <class R1, class R2, class R3>
-static pair<
-  zip_iterator<tuple<
-                 typename range_iterator<R1>::type,
-                 typename range_iterator<R2>::type,
-                 typename range_iterator<R3>::type> >,
-  zip_iterator<tuple<
-                 typename range_iterator<R1>::type,
-                 typename range_iterator<R2>::type,
-                 typename range_iterator<R3>::type> > >
-zip(R1& r1, R2& r2, R3& r3) {
-  size_t size = range_min_size(r1, r2, r3);
-  return make_pair(
-      make_zip_iterator(make_tuple(
-          boost::begin(r1), boost::begin(r2), boost::begin(r3))),
-      make_zip_iterator(make_tuple(
-          boost::end(r1) - (boost::size(r1) - size),
-          boost::end(r2) - (boost::size(r2) - size),
-          boost::end(r3) - (boost::size(r3) - size))));
-}
-template <class R1, class R2, class R3, class R4>
-static pair<
-  zip_iterator<tuple<
-                 typename range_iterator<R1>::type,
-                 typename range_iterator<R2>::type,
-                 typename range_iterator<R3>::type,
-                 typename range_iterator<R4>::type> >,
-  zip_iterator<tuple<
-                 typename range_iterator<R1>::type,
-                 typename range_iterator<R2>::type,
-                 typename range_iterator<R3>::type,
-                 typename range_iterator<R4>::type> > >
-zip(R1& r1, R2& r2, R3& r3, R4& r4) {
-  size_t size = range_min_size(r1, r2, r3, r4);
-  return make_pair(
-      make_zip_iterator(make_tuple(
-          boost::begin(r1), boost::begin(r2), boost::begin(r3),
-          boost::begin(r4))),
-      make_zip_iterator(make_tuple(
-          boost::end(r1) - (boost::size(r1) - size),
-          boost::end(r2) - (boost::size(r2) - size),
-          boost::end(r3) - (boost::size(r3) - size),
-          boost::end(r4) - (boost::size(r4) - size))));
-}
-template <class R1, class R2, class R3, class R4, class R5>
-static pair<
-  zip_iterator<tuple<
-                 typename range_iterator<R1>::type,
-                 typename range_iterator<R2>::type,
-                 typename range_iterator<R3>::type,
-                 typename range_iterator<R4>::type,
-                 typename range_iterator<R5>::type> >,
-  zip_iterator<tuple<
-                 typename range_iterator<R1>::type,
-                 typename range_iterator<R2>::type,
-                 typename range_iterator<R3>::type,
-                 typename range_iterator<R4>::type,
-                 typename range_iterator<R5>::type> > >
-zip(R1& r1, R2& r2, R3& r3, R4& r4, R5& r5) {
-  size_t size = range_min_size(r1, r2, r3, r4, r5);
-  return make_pair(
-      make_zip_iterator(make_tuple(
-          boost::begin(r1), boost::begin(r2), boost::begin(r3),
-          boost::begin(r4), boost::begin(r5))),
-      make_zip_iterator(make_tuple(
-          boost::end(r1) - (boost::size(r1) - size),
-          boost::end(r2) - (boost::size(r2) - size),
-          boost::end(r3) - (boost::size(r3) - size),
-          boost::end(r4) - (boost::size(r4) - size),
-          boost::end(r5) - (boost::size(r5) - size))));
-}
 //template <class T1, class T2>
 //static pair<counting_iterator<T2>, counting_iterator<T2> >
 //span(const T1& t1, const T2& t2)
@@ -605,6 +518,93 @@ static size_t range_min_size (
 }
 template <class R> static int arg_max(const R& r) {
   return distance(boost::begin(r), max_element(boost::begin(r), boost::end(r)));
+}
+template <class R1, class R2>
+static pair<
+  zip_iterator<tuple<
+                 typename range_iterator<R1>::type,
+                 typename range_iterator<R2>::type> >,
+  zip_iterator<tuple<
+                 typename range_iterator<R1>::type,
+                 typename range_iterator<R2>::type> > >
+zip(R1& r1, R2& r2) {
+  size_t size = range_min_size(r1, r2);
+  return make_pair(
+      make_zip_iterator(make_tuple(boost::begin(r1), boost::begin(r2))),
+      make_zip_iterator(make_tuple(
+          boost::end(r1) - (boost::size(r1) - size),
+          boost::end(r2) - (boost::size(r2) - size))));
+}
+template <class R1, class R2, class R3>
+static pair<
+  zip_iterator<tuple<
+                 typename range_iterator<R1>::type,
+                 typename range_iterator<R2>::type,
+                 typename range_iterator<R3>::type> >,
+  zip_iterator<tuple<
+                 typename range_iterator<R1>::type,
+                 typename range_iterator<R2>::type,
+                 typename range_iterator<R3>::type> > >
+zip(R1& r1, R2& r2, R3& r3) {
+  size_t size = range_min_size(r1, r2, r3);
+  return make_pair(
+      make_zip_iterator(make_tuple(
+          boost::begin(r1), boost::begin(r2), boost::begin(r3))),
+      make_zip_iterator(make_tuple(
+          boost::end(r1) - (boost::size(r1) - size),
+          boost::end(r2) - (boost::size(r2) - size),
+          boost::end(r3) - (boost::size(r3) - size))));
+}
+template <class R1, class R2, class R3, class R4>
+static pair<
+  zip_iterator<tuple<
+                 typename range_iterator<R1>::type,
+                 typename range_iterator<R2>::type,
+                 typename range_iterator<R3>::type,
+                 typename range_iterator<R4>::type> >,
+  zip_iterator<tuple<
+                 typename range_iterator<R1>::type,
+                 typename range_iterator<R2>::type,
+                 typename range_iterator<R3>::type,
+                 typename range_iterator<R4>::type> > >
+zip(R1& r1, R2& r2, R3& r3, R4& r4) {
+  size_t size = range_min_size(r1, r2, r3, r4);
+  return make_pair(
+      make_zip_iterator(make_tuple(
+          boost::begin(r1), boost::begin(r2), boost::begin(r3),
+          boost::begin(r4))),
+      make_zip_iterator(make_tuple(
+          boost::end(r1) - (boost::size(r1) - size),
+          boost::end(r2) - (boost::size(r2) - size),
+          boost::end(r3) - (boost::size(r3) - size),
+          boost::end(r4) - (boost::size(r4) - size))));
+}
+template <class R1, class R2, class R3, class R4, class R5>
+static pair<
+  zip_iterator<tuple<
+                 typename range_iterator<R1>::type,
+                 typename range_iterator<R2>::type,
+                 typename range_iterator<R3>::type,
+                 typename range_iterator<R4>::type,
+                 typename range_iterator<R5>::type> >,
+  zip_iterator<tuple<
+                 typename range_iterator<R1>::type,
+                 typename range_iterator<R2>::type,
+                 typename range_iterator<R3>::type,
+                 typename range_iterator<R4>::type,
+                 typename range_iterator<R5>::type> > >
+zip(R1& r1, R2& r2, R3& r3, R4& r4, R5& r5) {
+  size_t size = range_min_size(r1, r2, r3, r4, r5);
+  return make_pair(
+      make_zip_iterator(make_tuple(
+          boost::begin(r1), boost::begin(r2), boost::begin(r3),
+          boost::begin(r4), boost::begin(r5))),
+      make_zip_iterator(make_tuple(
+          boost::end(r1) - (boost::size(r1) - size),
+          boost::end(r2) - (boost::size(r2) - size),
+          boost::end(r3) - (boost::size(r3) - size),
+          boost::end(r4) - (boost::size(r4) - size),
+          boost::end(r5) - (boost::size(r5) - size))));
 }
 //ARITHMETIC RANGE OPERATIONS
 template<class T1, class T2, class T3, class T4> static T1 gauss_pdf(
