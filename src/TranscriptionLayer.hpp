@@ -15,8 +15,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with RNNLIB.  If not, see <http://www.gnu.org/licenses/>.*/
 
-#ifndef _INCLUDED_TranscriptionLayer_h  
-#define _INCLUDED_TranscriptionLayer_h  
+#ifndef _INCLUDED_TranscriptionLayer_h
+#define _INCLUDED_TranscriptionLayer_h
 
 #include <boost/bimap.hpp>
 #include "SoftmaxLayer.hpp"
@@ -25,7 +25,7 @@ along with RNNLIB.  If not, see <http://www.gnu.org/licenses/>.*/
 const Log<real_t> logOne(1);
 
 struct TranscriptionLayer: public SoftmaxLayer, public NetworkOutput
-{	
+{
 	//data
 	ostream& out;
 	SeqBuffer<Log<real_t> > forwardVariables;
@@ -36,7 +36,7 @@ struct TranscriptionLayer: public SoftmaxLayer, public NetworkOutput
 	vector<Log<real_t> > dEdYTerms;
 	vector<int> outputLabelSeq;
 	bool confusionMatrix;
-	
+
 	//functions
 	TranscriptionLayer(ostream& o, const string& name, const vector<string>& labs, bool cm = false):
 		SoftmaxLayer(name, 1, make_target_labels(labs)),
@@ -48,7 +48,7 @@ struct TranscriptionLayer: public SoftmaxLayer, public NetworkOutput
 		criteria = list_of("ctcError")("labelError")("sequenceError");
 		display(forwardVariables, "forwardVariables", &targetLabels);
 		display(backwardVariables, "backwardVariables", &targetLabels);
-	}	
+	}
 	virtual ~TranscriptionLayer()
 	{
 	}
@@ -58,7 +58,7 @@ struct TranscriptionLayer: public SoftmaxLayer, public NetworkOutput
 		targetLabels += "blank";
 		return targetLabels;
 	}
-	integer_range<int> segment_range(int time, int totalSegs = -1) const 
+	integer_range<int> segment_range(int time, int totalSegs = -1) const
 	{
 		if (totalSegs < 0)
 		{
@@ -114,9 +114,9 @@ struct TranscriptionLayer: public SoftmaxLayer, public NetworkOutput
 		{
 			out << "warning, seq " << seq.tag << " has requiredTime " << requiredTime << " > totalTime " << totalTime << endl;
 			return 0;
-		}		
+		}
 		totalSegments = (seq.targetLabelSeq.size() * 2) + 1;
-		
+
 		//calculate the forward variables
 		forwardVariables.reshape_with_depth(list_of(totalTime), totalSegments, 0);
 		forwardVariables.data[0] = logActivations.data[blank];
@@ -163,7 +163,7 @@ struct TranscriptionLayer: public SoftmaxLayer, public NetworkOutput
 		{
 			logProb += nth_last(lastFvs, 2);
 		}
-		check(logProb.log() <= 0, "sequence\n" + str(seq) + "has log probability " + str(logProb.log()));
+		check(logProb.log() <= 0.0 || fabs(logProb.log() - 0.0) <= 1E-9, "sequence\n" + str(seq) + "has log probability " + str(logProb.log()));
 
 		//calculate the backward variables
 		backwardVariables.reshape_with_depth(list_of(totalTime), totalSegments, Log<real_t>());
@@ -182,7 +182,7 @@ struct TranscriptionLayer: public SoftmaxLayer, public NetworkOutput
 			LOOP(int s, segment_range(t))
 			{
 				Log<real_t> bv;
-				
+
 				//s odd (label output)
 				if (s&1)
 				{
@@ -198,7 +198,7 @@ struct TranscriptionLayer: public SoftmaxLayer, public NetworkOutput
 						}
 					}
 				}
-				
+
 				//s even (blank output)
 				else
 				{
@@ -237,9 +237,9 @@ struct TranscriptionLayer: public SoftmaxLayer, public NetworkOutput
 		real_t insertions = alignment.insertions;
 		real_t seqError = labelError ? 1 : 0;
 		real_t ctcError = -logProb.log();
-		
+
 		//store errors in map
-		int normFactor = seq.targetLabelSeq.size(); 
+		int normFactor = seq.targetLabelSeq.size();
 		normFactors["labelError"] = normFactor;
 		normFactors["substitutions"] = normFactor;
 		normFactors["deletions"] = normFactor;
@@ -256,11 +256,11 @@ struct TranscriptionLayer: public SoftmaxLayer, public NetworkOutput
 			LOOP (const PII& p, alignment.delsMap)
 			{
 				errorMap["_" + targetLabels[p.first] + "_deletions"] += (real_t)p.second / normFactor;
-			}			
+			}
 			LOOP (const PII& p, alignment.insMap)
 			{
 				errorMap["_" + targetLabels[p.first] + "_insertions"] += (real_t)p.second / normFactor;
-			}	
+			}
 			typedef pair<int, map<int,int> > subsPair;
 			LOOP (const subsPair& p, alignment.subsMap)
 			{
@@ -270,7 +270,7 @@ struct TranscriptionLayer: public SoftmaxLayer, public NetworkOutput
 				{
 					errorMap["_" + targetLabels[refIndex] + "->" + targetLabels[p2.first]] += (real_t)p2.second / normFactor;
 				}
-			}	
+			}
 		}
 		if (verbose)
 		{
