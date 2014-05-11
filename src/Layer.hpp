@@ -1,19 +1,21 @@
-/*Copyright 2009,2010 Alex Graves
+/*
+  Copyright 2009,2010 Alex Graves
 
-This file is part of RNNLIB.
-
-RNNLIB is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-RNNLIB is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with RNNLIB.  If not, see <http://www.gnu.org/licenses/>.*/
+  This file is part of RNNLIB.
+  
+  RNNLIB is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  
+  RNNLIB is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+  
+  You should have received a copy of the GNU General Public License
+  along with RNNLIB.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #ifndef _INCLUDED_Layer_h
 #define _INCLUDED_Layer_h
@@ -29,9 +31,6 @@ along with RNNLIB.  If not, see <http://www.gnu.org/licenses/>.*/
 extern bool verbose;
 
 struct Layer: public DataExporter {
-  // typedefs
-  // typedef multi_array<real_t, 3> array3d;
-
   // data
   vector<int> directions;
   SeqBuffer<real_t> inputActivations;
@@ -163,11 +162,13 @@ ostream& operator <<(ostream& out, const Layer& l) {
 }
 
 struct FlatLayer: public Layer {
-  FlatLayer(const string& name, size_t numSeqDims, size_t size, Layer* src = 0):
+  FlatLayer(
+      const string& name, size_t numSeqDims, size_t size, Layer* src = 0) :
       Layer(name, numSeqDims, size, size, src) {}
 
   FlatLayer(
-      const string& name, const vector<int>& dirs, size_t size, Layer* src = 0):
+      const string& name, const vector<int>& dirs, size_t size,
+      Layer* src = 0) :
       Layer(name, dirs, size, size, src) {}
 };
 
