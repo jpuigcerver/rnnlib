@@ -120,6 +120,7 @@ struct Mdrnn {
   Layer* collapse_layer(
       Layer* src, Layer* dest,
       const vector<bool>& activeDims = empty_list_of<bool>()) {
+    PRTN(activeDims);
     Layer* layer = add_layer(new CollapseLayer (src, dest, activeDims));
     add_connection(new CopyConnection(layer, dest));
     return layer;

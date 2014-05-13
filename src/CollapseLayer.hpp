@@ -1,32 +1,32 @@
 /*
   Copyright 2009,2010 Alex Graves
-  
+
   This file is part of RNNLIB.
-  
+
   RNNLIB is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
-  
+
   RNNLIB is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
   GNU General Public License for more details.
-  
+
   You should have received a copy of the GNU General Public License
   along with RNNLIB.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef _INCLUDED_CollapseLayer_h  
-#define _INCLUDED_CollapseLayer_h  
+#ifndef _INCLUDED_CollapseLayer_h
+#define _INCLUDED_CollapseLayer_h
 
 #include "Layer.hpp"
 
-struct CollapseLayer: public Layer {    
+struct CollapseLayer: public Layer {
   // data
   vector<bool> activeDims;
   vector<size_t> outSeqShape;
-        
+
   // functions
   CollapseLayer(
       Layer* src, Layer* des,
@@ -42,7 +42,7 @@ struct CollapseLayer: public Layer {
     DISPLAY(outputErrors);
   }
 
-  virtual void start_sequence() {       
+  virtual void start_sequence() {
     outSeqShape.clear();
     for (int i = 0; i < activeDims.size(); ++i) {
       if (activeDims[i]) {
@@ -64,6 +64,8 @@ struct CollapseLayer: public Layer {
       }
     }
     assert(outCoords.size() == num_seq_dims());
+    //PRTN(inCoords);
+    //PRTN(outCoords);
     return outCoords;
   }
 
