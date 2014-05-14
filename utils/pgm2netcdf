@@ -1,0 +1,382 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Use this tool in order to create a NetCDF file from a set of PGM images and
+# their transcription.
+#
+# The image IDs are read from stdin and their respective image and
+# transcription paths are created implicitly appending the .pgm and .txt
+# extensions. The program also supports gzip-compressed files (.pgm.gz and
+# .txt.gz files, respectively).
+#
+# Transcriptions must be encoded using UTF-8. Spaces will be represented by
+# their UTF-8 hexadecimal code in the NetCDF file.
+#
+# If --imgs-dir and --text-dir arguments are provided, they are used as paths
+# to the images and transcriptions directory.
+#
+# An implicit set of labels can be using the --labels argument. Labels are
+# separated by blank spaces (any blank space is valid). Labels must be encoded
+# using UTF-8. Labels representing spaces must be represented by their UTF-8
+# hex code, or they will be ignored.
+#
+# Use arguments --mean and --stdv to normalize the images. You will have to
+# compute these value manually before running this program.
+#
+# Use the --num-threads option to parallelize the processing of your images
+# into multiple processes. This improves significantly the performance in
+# machines with multiple cores.
+
+__author__ = 'Joan Puigcerver <joapuipe@prhlt.upv.es>'
+
+import argparse
+import gzip
+import logging
+import numpy as np
+import re
+import sys
+from math import ceil
+from multiprocessing import Process, Queue
+from os.path import isfile, normpath
+from Scientific.IO.NetCDF import NetCDFFile
+
+FORMAT = '%(asctime)s PID-%(process)d %(levelname)s: %(message)s'
+logging.basicConfig(format = FORMAT)
+logger = logging.getLogger()
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description = """Create a NetCDF file from a set of PGM images and
+        their transcription.""",
+        epilog = """The image IDs are read from stdin and their respective
+        image and transcription paths are created implicitly appending the .pgm
+        and .txt extensions. The program also supports gzip-compressed files
+        (.pgm.gz and .txt.gz files, respectively).
+
+        Transcriptions must be encoded using UTF-8. Spaces will be represented
+        by their UTF-8 hexadecimal code in the NetCDF file.
+
+        If --imgs-dir and --text-dir arguments are provided, they are used as
+        paths to the images and transcriptions directory.
+
+        An implicit set of labels can be using the --labels argument. Labels
+        are separated by blank spaces (any blank space is valid). Labels must
+        be encoded using UTF-8. Labels representing spaces must be represented
+        by their UTF-8 hex code, or they will be ignored.
+
+        Use arguments --mean and --stdv to normalize the images. You will have
+        to compute these value manually before running this program.
+
+        Use the --num-threads option to parallelize the processing of your
+        images into multiple processes. This improves significantly the
+        performance in machines with multiple cores.""")
+    parser.add_argument(
+        '-i', '--imgs-dir', type=str, default=None,
+        help='Directory containing the images to process')
+    parser.add_argument(
+        '-t', '--text-dir', type=str, default=None,
+        help='Directory containing the transcriptions of the images')
+    parser.add_argument(
+        '-l', '--labels', type=str, default=None,
+        help='File containing the list of labels to use')
+    parser.add_argument(
+        '-m', '--mean', type=float, default=0.0,
+        help='Mean of the pixel values in the images')
+    parser.add_argument(
+        '-s', '--stdv', type=float, default=1.0,
+        help='Standard deviation of the pixel values in the images')
+    parser.add_argument(
+        '-n', '--num-threads', type=int, default=1,
+        help='Use this number of threads to process the input')
+    parser.add_argument(
+        '-c', '--column-major', action='store_true',
+        help='Store the images in column-major order')
+    parser.add_argument(
+        '-v', '--verbose', action='store_true',
+        help='Show information while processing the files')
+    parser.add_argument(
+        'output', metavar='OUTPUT', type=str, help='Output NetCDF file path')
+    return parser.parse_args()
+
+def read_pgm(f):
+    H = f.readline()
+    assert H == 'P2\n'
+    DIMS = f.readline().split()
+    assert len(DIMS) == 2
+    W, H = int(DIMS[0]), int(DIMS[1])
+    DEPTH = int(f.readline())
+    im = []
+    for m in re.finditer(r'(\d+)', f.read(), re.M):
+        if len(im) == 0 or len(im[-1]) == W: im.append([])
+        im[-1].append(int(m.groups()[0]))
+    im = np.array(im, dtype='float32')
+    assert im.shape == (H, W)
+    return np.array(im)
+
+def read_txt(f):
+    t = f.readline()
+    if t[-1] == '\n': t = t[:-1]
+    t = unicode(t.decode('utf-8'))
+    t_c = []   # Sequence of characters
+    t_w = []   # Sequence of words
+    p_s = True # Was the previous character an space?
+    for c in t:
+        if not c.isspace():
+            t_c.append(c)
+            if p_s: t_w.append(u'')
+            t_w[-1] += c
+            p_s = False
+        else:
+            t_c.append(u'0x%x' % ord(c))
+            p_s = True
+    return t_c, t_w
+
+def read_labels(f):
+    return set(unicode(m.groups()[0]) for m in re.finditer(
+        r'(\S+)', f.read().decode('utf-8'), re.M + re.U))
+
+def open_file(tag, ext = '', cwdir = ''):
+    fname = normpath('%s%s%s' % (cwdir, tag, ext))
+    if isfile(fname):
+        f = open(fname, 'r')
+        if not f:
+            logger.error('File \"%s\" cannot be opened!' % fname)
+            exit(1)
+        else:
+            return f
+    elif isfile(fname + '.gz'):
+        fname = fname + '.gz'
+        f = gzip.open(fname, 'r')
+        if not f:
+            logger.error('File \"%s\" cannot be opened!' % fname)
+            exit(1)
+        else:
+            return f
+    else:
+        logger.warning(
+            'File \"{0}\" and \"{0}.gz\" not found!'.format(fname))
+        return None
+
+def strings_for_netcdf(strs, max_len):
+    return map(
+        lambda x: list(x) + ['' for i in range(len(x), max_len)], strs)
+
+class WorkerProcess(Process):
+    def __init__(self, pid, tags, output_queue, opts):
+        super(WorkerProcess, self).__init__()
+        self.my_pid = pid
+        self.tags = tags
+        self.output_queue = output_queue
+        self.opts = opts
+
+    def run(self):
+        INPUTS = []
+        DIMS = []
+        TRANSC_C = []
+        TRANSC_W = []
+        if not self.opts.labels:
+            LABELS = set()
+        for tag in self.tags:
+            logger.info('Processing tag \"%s\"' % (tag))
+
+            # Load PGM image
+            f = open_file(tag, '.pgm', self.opts.imgs_dir)
+            if not f: continue
+            im = read_pgm(f)
+            f.close()
+            # Load TXT file
+            f = open_file(tag, '.txt', self.opts.text_dir)
+            if not f: continue
+            tr_c, tr_w = read_txt(f)
+            f.close()
+
+            # -- PROCESS IMAGE --
+            # Get image height and width and add to dimensions lists
+            im_h, im_w = im.shape
+            if self.opts.column_major:
+                im_dim = (im_w, im_h)
+                im_ord = 'F'
+            else:
+                im_dim = (im_h, im_w)
+                im_ord = 'C'
+            DIMS.append(np.array(im_dim, ndmin=2, dtype=np.int32))
+            # Normalize image and push it to the inputs
+            im = (im.flatten(order = im_ord) - self.opts.mean) / self.opts.stdv
+            INPUTS.append(im)
+
+            # -- PROCESS TRANSCRIPTION --
+            if not self.opts.labels:
+                LABELS.update(tr_c)
+
+            TRANSC_C.append(tr_c)
+            TRANSC_W.append(tr_w)
+
+        # Put processed data to the output queue
+        INPUTS = np.concatenate(INPUTS)
+        INPUTS = INPUTS.reshape((INPUTS.shape[0], 1))
+        DIMS = np.concatenate(DIMS)
+        if not self.opts.labels:
+            LABELS = map(lambda x: x.encode('utf-8'), LABELS)
+            MAX_LABEL_LENGTH = reduce(
+                lambda acc, x: max(acc, len(x)), LABELS, 0) + 1
+        TRANSC_C = map(
+            lambda x: u' '.join([c for c in x]).encode('utf-8'), TRANSC_C)
+        TRANSC_W = map(
+            lambda x: u' '.join([c for c in x]).encode('utf-8'), TRANSC_W)
+        MAX_TARG_STRING_LENGTH = reduce(
+            lambda acc, x: max(acc, len(x)), TRANSC_C, 0) + 1
+        MAX_WORD_TARG_STRING_LENGTH = reduce(
+            lambda acc, x: max(acc, len(x)), TRANSC_W, 0) + 1
+
+        if self.opts.labels:
+            self.output_queue.put(
+                (self.my_pid, INPUTS, DIMS, TRANSC_C, TRANSC_W,
+                 MAX_TARG_STRING_LENGTH, MAX_WORD_TARG_STRING_LENGTH))
+        else:
+            self.output_queue.put(
+                (self.my_pid, LABELS, INPUTS, DIMS, TRANSC_C, TRANSC_W,
+                 MAX_LABEL_LENGTH, MAX_TARG_STRING_LENGTH,
+                 MAX_WORD_TARG_STRING_LENGTH))
+
+# Main body
+if __name__ == '__main__':
+    opts = parse_args()
+
+    # Set the appropiate level for the logger
+    if opts.verbose:
+        logger.setLevel(logging.INFO)
+
+    # Show the used command-line
+    logger.info('Command-Line: %s' % ' '.join(sys.argv))
+
+    # Format the --imgs-dir argument
+    if not opts.imgs_dir:
+        opts.imgs_dir = ''
+    elif opts.imgs_dir[-1] != '/':
+        opts.imgs_dir += '/'
+
+    # Format the --text-dir argument
+    if not opts.text_dir:
+        opts.text_dir = ''
+    elif opts.text_dir[-1] != '/':
+        opts.text_dir += '/'
+
+    # Load the labels file, if available
+    if opts.labels:
+        f = open_file(opts.labels)
+        LABELS = read_labels(f)
+        f.close()
+
+    # Check num_threads argument
+    if opts.num_threads < 1:
+        logging.warning(
+            'Invalid number of threads (%d): using 1' % opts.num_threads)
+        opts.num_threads = 1
+
+    # Read tags and split accross different threads
+    queue = Queue()
+    WORKERS = []
+    TAGS = [tag.strip() for tag in sys.stdin]
+    tags_x_worker = int(ceil(len(TAGS) / float(opts.num_threads)))
+    for pid in range(opts.num_threads):
+        st = pid * tags_x_worker
+        WORKERS.append(
+            WorkerProcess(pid, TAGS[st:st + tags_x_worker], queue, opts))
+        WORKERS[-1].start()
+
+    # Compute the MAX_SEQ_TAG LENGTH while jobs are doing their work
+    MAX_SEQ_TAG_LENGTH = reduce(
+        lambda acc, x: max(acc, len(x)), TAGS, 0) + 1
+
+    # If the set labels is given, process them in the sever thread
+    if opts.labels:
+        LABELS = map(lambda x: x.encode('utf-8'), LABELS)
+        MAX_LABEL_LENGTH = reduce(
+            lambda acc, x: max(acc, len(x)), LABELS, 0) + 1
+    else:
+        LABELS = set()
+        MAX_LABEL_LENGTH = 0
+
+    # Get data from workers, before destroying them
+    RESULTS_QUEUE = []
+    for worker in WORKERS:
+        RESULTS_QUEUE.append(queue.get(block = True))
+    # Sort partial data, so the TAGS order is respected
+    RESULTS_QUEUE.sort()
+
+    # Join workers and destroy child processes
+    for worker in WORKERS:
+        worker.join()
+
+    # Join all the processed information
+    INPUTS = []
+    DIMS = []
+    TRANSC_C = []
+    TRANSC_W = []
+    MAX_TARG_STRING_LENGTH = 0
+    MAX_WORD_TARG_STRING_LENGTH = 0
+    for result in RESULTS_QUEUE:
+        if opts.labels:
+            (_, inputs_w, dims_w, transc_c_w, transc_w_w,
+             max_targ_string_length_w,
+             max_word_targ_string_length_w) = result
+        else:
+            (_, labels_w, inputs_w, dims_w, transc_c_w, transc_w_w,
+             max_label_length_w, max_targ_string_length_w,
+             max_word_targ_string_length_w) = result
+            LABELS.update(labels_w)
+            MAX_LABEL_LENGTH = max(MAX_LABEL_LENGTH, max_label_length_w)
+
+        INPUTS.append(inputs_w)
+        DIMS.append(dims_w)
+        TRANSC_C.extend(transc_c_w)
+        TRANSC_W.extend(transc_w_w)
+        MAX_TARG_STRING_LENGTH = max(
+            MAX_TARG_STRING_LENGTH, max_targ_string_length_w)
+        MAX_WORD_TARG_STRING_LENGTH = max(
+            MAX_WORD_TARG_STRING_LENGTH, max_word_targ_string_length_w)
+
+    # Prepare data to be stored
+    INPUTS = np.concatenate(INPUTS)
+    DIMS = np.concatenate(DIMS)
+    LABELS = list(LABELS)
+    LABELS.sort()
+
+    f = NetCDFFile(opts.output, 'w')
+    # -- WRITE DIMENSIONS --
+    f.createDimension('numSeqs', len(TAGS))
+    f.createDimension('numTimesteps', INPUTS.shape[0])
+    f.createDimension('inputPattSize', INPUTS.shape[1])
+    f.createDimension('numDims', len(DIMS.shape))
+    f.createDimension('numLabels', len(LABELS))
+    f.createDimension('maxLabelLength', MAX_LABEL_LENGTH)
+    f.createDimension('maxSeqTagLength', MAX_SEQ_TAG_LENGTH)
+    f.createDimension('maxTargStringLength', MAX_TARG_STRING_LENGTH)
+    f.createDimension('maxWordTargStringLength', MAX_WORD_TARG_STRING_LENGTH)
+
+    # -- WRITE VARIABLES --
+    labels = f.createVariable('labels', 'c', ('numLabels', 'maxLabelLength'))
+    labels.assignValue(strings_for_netcdf(LABELS, MAX_LABEL_LENGTH))
+
+    seqTags = f.createVariable('seqTags', 'c', ('numSeqs', 'maxSeqTagLength'))
+    seqTags.assignValue(strings_for_netcdf(TAGS, MAX_SEQ_TAG_LENGTH))
+
+    seqDims = f.createVariable('seqDims', 'i', ('numSeqs','numDims'))
+    seqDims.assignValue(DIMS)
+    seqLengths = f.createVariable('seqLengths', 'i', ('numSeqs',))
+    seqLengths.assignValue(map(lambda x: x[0] * x[1], DIMS.tolist()))
+
+    targetStrings = f.createVariable(
+        'targetStrings', 'c', ('numSeqs', 'maxTargStringLength'))
+    targetStrings.assignValue(strings_for_netcdf(
+        TRANSC_C, MAX_TARG_STRING_LENGTH))
+
+    wordTargetStrings = f.createVariable(
+        'wordTargetStrings', 'c', ('numSeqs', 'maxWordTargStringLength'))
+    wordTargetStrings.assignValue(strings_for_netcdf(
+        TRANSC_W, MAX_WORD_TARG_STRING_LENGTH))
+
+    inputs = f.createVariable('inputs', 'f', ('numTimesteps', 'inputPattSize'))
+    inputs.assignValue(INPUTS)
+    f.close()
