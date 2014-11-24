@@ -19,11 +19,16 @@ target_link_libraries(rnnlib ${NETCDF_LIBRARIES})
 find_package(Boost REQUIRED)
 include_directories(${Boost_INCLUDE_DIRS})
 
+find_package(BLAS REQUIRED)
+target_link_libraries(rnnlib ${BLAS_LIBRARIES})
+if (BLAS_FLAGS)
+target_compile_options(rnnlib ${BLAS_FLAGS})
+endif(BLAS_FLAGS)
+
 # Should we use
 if (RNNLIB_USE_FLOAT)
-  add_definitions(-DUSE_FLOATS)
+  add_definitions(-DFLOAT_REALS)
 endif (RNNLIB_USE_FLOAT)
 
 # make install
 install(TARGETS rnnlib DESTINATION bin)
-

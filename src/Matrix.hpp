@@ -18,10 +18,33 @@ along with RNNLIB.  If not, see <http://www.gnu.org/licenses/>.*/
 #ifndef _INCLUDED_Matrix_h
 #define _INCLUDED_Matrix_h
 
-#define OP_TRACKING
+// #define OP_TRACKING
 
 #ifdef OP_TRACKING
 static uint64_t matrixOps = 0;
+#endif
+
+extern "C" {
+  void sger_(const int* m, const int* n, const float* alpha, const float* x,
+             const int* incx, const float* y, const int* incy, float* a,
+             const int* lda);
+  void dger_(const int* m, const int* n, const double* alpha, const double* x,
+             const int* incx, const double* y, const int* incy, double* a,
+             const int* lda);
+  void sgemv_(const char* t, const int* m, const int* n, const float* alpha,
+              const float* a, const int* lda, const float* x, const int* incx,
+              const float* beta, float* y, const int* incy);
+  void dgemv_(const char* t, const int* m, const int* n, const double* alpha,
+              const double* a, const int* lda, const double* x, const int* incx,
+              const double* beta, double* y, const int* incy);
+}
+
+#ifdef FLOAT_REALS
+#define ger sger_
+#define gemv sgemv_
+#else
+#define ger dger_
+#define gemv dgemv_
 #endif
 
 // M += a * b
@@ -31,12 +54,19 @@ static void outer(
 #ifdef OP_TRACKING
   const real_t* mStart = M;
 #endif
+  // This code assumes M is in COL-MAJOR order!!
+  /*
   for (; b != bEnd; ++b) {
     real_t input = *b;
     for (const real_t *a = aBegin; a != aEnd; ++a, ++M) {
       *M += *a * input;
     }
-  }
+  }*/
+  const int inc = 1;
+  const real_t one = 1;
+  const int m = (int)(aEnd - aBegin);
+  const int n = (int)(bEnd - b);
+  ger(&m, &n, &one, aBegin, &inc, b, &inc, M, &m);
 #ifdef OP_TRACKING
   matrixOps += M - mStart;
 #endif
@@ -49,13 +79,19 @@ static void dot(
 #ifdef OP_TRACKING
   const real_t* mStart = M;
 #endif
-  for (; out != outEnd; ++out) {
+  // This code assumes M is in ROW-MAJOR order!!
+  /*for (; out != outEnd; ++out) {
     real_t sum = 0;
     for (const real_t *in = inBegin; in != inEnd; ++in, ++M) {
       sum += *M * (*in);
     }
     *out += sum;
-  }
+  }*/
+  const int inc = 1;
+  const real_t fact = 1;
+  const int n = (int)(outEnd - out);
+  const int m = (int)(inEnd - inBegin);
+  gemv("T", &m, &n, &fact, M, &m, inBegin, &inc, &fact, out, &inc);
 #ifdef OP_TRACKING
   matrixOps += M - mStart;
 #endif
@@ -68,12 +104,18 @@ static void dot_transpose(
 #ifdef OP_TRACKING
   const real_t* mStart = M;
 #endif
-  for (; in != inEnd; ++in) {
+  // This code assumes M is in ROW-MAJOR order!!
+  /*for (; in != inEnd; ++in) {
     real_t input = *in;
     for (real_t *out = outBegin; out != outEnd; ++out, ++M) {
       *out += *M * input;
     }
-  }
+  }*/
+  const int inc = 1;
+  const real_t fact = 1;
+  const int n = (int)(outEnd - outBegin);
+  const int m = (int)(inEnd - in);
+  gemv("N", &n, &m, &fact, M, &n, in, &inc, &fact, outBegin, &inc);
 #ifdef OP_TRACKING
   matrixOps += M - mStart;
 #endif
