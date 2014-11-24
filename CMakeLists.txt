@@ -21,7 +21,7 @@ include_directories(${Boost_INCLUDE_DIRS})
 
 # Should we use
 if (RNNLIB_USE_FLOAT)
-  add_definitions(-DUSE_FLOATS)
+  add_definitions(-DREAL_FLOATS)
 endif (RNNLIB_USE_FLOAT)
 
 # make install

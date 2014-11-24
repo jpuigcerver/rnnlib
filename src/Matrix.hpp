@@ -18,7 +18,7 @@ along with RNNLIB.  If not, see <http://www.gnu.org/licenses/>.*/
 #ifndef _INCLUDED_Matrix_h
 #define _INCLUDED_Matrix_h
 
-#define OP_TRACKING
+//#define OP_TRACKING
 
 #ifdef OP_TRACKING
 static uint64_t matrixOps = 0;
